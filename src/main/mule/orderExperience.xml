@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:solace-tracing="http://www.mulesoft.org/schema/mule/solace-tracing"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/solace-tracing http://www.mulesoft.org/schema/mule/solace-tracing/current/mule-solace-tracing.xsd">
+
+	<flow name="orderExperience">
+		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config_exp_api" path="orders_exp" allowedMethods="POST" />
+		<logger level="INFO" doc:name="Logger Exp API - Before Publish" message="#[payload]" />
+<logger level="INFO" message='#[output text/plain --- "CT header: " ++ (attributes.headers."content-type" default "NONE") ++ " | payload type: " ++ (payload.^mimeType default "?")]'/>
+		<!-- Continues the caller's trace if it sent a traceparent header; otherwise starts a new trace.
+		     The body defaults to the payload. target keeps the payload intact. -->
+		<logger level="INFO" doc:name="Logger" doc:id="70319f0c-4866-4d5e-8bef-8698f61751c6" />
+		<solace-tracing:publish doc:name="Publish orders/created" config-ref="Solace_Tracing_Config"
+			destination="order/created"
+			serviceName="mule-producer"
+			spanName="orders/created send"
+			traceparent="#[attributes.headers.traceparent]"
+			tracestate="#[attributes.headers.tracestate]"
+			target="outTrace" />
+		<logger level="INFO" doc:name="PRODUCER out" message='#["PRODUCER out: " ++ write(vars.outTrace, "application/json")]' />
+
+		<ee:transform doc:name="Transform Message">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"orderStatus" : "accepted"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger Exp API - After Publish" message="#[payload]" />
+	</flow>
+</mule>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:solace-tracing="http://www.mulesoft.org/schema/mule/solace-tracing"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/solace-tracing http://www.mulesoft.org/schema/mule/solace-tracing/current/mule-solace-tracing.xsd">
+
+	<configuration-properties doc:name="Configuration properties" file="config.properties" />
+
+	<http:listener-config name="HTTP_Listener_config_exp_api" doc:name="HTTP Listener config">
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+
+	<!-- Replaces SOLACE_JMS_CONFIG. One config serves the listener and the publish operation.
+	     For PROD, move solace.password to Secure Configuration Properties: password="${secure::solace.password}" -->
+	<solace-tracing:config name="Solace_Tracing_Config" doc:name="Solace Tracing Config"
+		serviceName="mule-orders" otlpEndpoint="${otel.endpoint}">
+		<solace-tracing:connection
+			host="${solace.host}"
+			vpn="${solace.vpn}"
+			username="${solace.username}"
+			password="${solace.password}"
+			reconnectRetries="20"
+			reconnectRetryWaitMs="3000">
+			<reconnection>
+				<reconnect-forever frequency="5000" />
+			</reconnection>
+		</solace-tracing:connection>
+	</solace-tracing:config>
+</mule>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:solace-tracing="http://www.mulesoft.org/schema/mule/solace-tracing"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/solace-tracing http://www.mulesoft.org/schema/mule/solace-tracing/current/mule-solace-tracing.xsd">
+
+	<flow name="orderSystem">
+		<solace-tracing:listener doc:name="On New Message q2" config-ref="Solace_Tracing_Config"
+			queueName="q2"
+			serviceName="mule-system"
+			spanName="q2 receive" />
+		<logger level="INFO" doc:name="SYSTEM in"
+			message='#["SYSTEM in (" ++ (attributes.traceContextSource default "") ++ "): " ++ (attributes.traceparent default "")]' />
+
+		<!-- The listener gives the body media type application/json, so DataWeave reads it as JSON directly. -->
+		<ee:transform doc:name="Transform Message Sys API - Result">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+import sumBy from dw::core::Arrays
+output application/json
+---
+{
+	customerId: payload.customerId,
+	orderItems: payload.orderItems map (orderItem, index) -> {
+		id: orderItem.id,
+		status: "ordered"
+	},
+	totalCost: sumBy(payload.orderItems, (item) -> item.price as Number)
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+
+		<solace-tracing:publish doc:name="Publish to q3" config-ref="Solace_Tracing_Config"
+			destination="q3"
+			destinationType="QUEUE"
+			serviceName="mule-system"
+			spanName="q3 send"
+			traceparent="#[attributes.traceparent]"
+			tracestate="#[attributes.tracestate]"
+			target="outTrace" />
+		<logger level="INFO" doc:name="SYSTEM out" message='#["SYSTEM out: " ++ write(vars.outTrace, "application/json")]' />
+	</flow>
+</mule>
