@@ -9,9 +9,12 @@ http://www.mulesoft.org/schema/mule/solace-tracing http://www.mulesoft.org/schem
 	     Set a max redelivery count and a DMQ on q1 in the broker. -->
 	<flow name="orderProcess">
 		<solace-tracing:listener doc:name="On New Message q1" config-ref="Solace_Tracing_Config"
-			queueName="q1"
+			destination="q1"
 			serviceName="mule-process"
 			spanName="q1 receive" />
+		<logger level="INFO" doc:name="PROCESS in"
+			message='#["PROCESS in (" ++ (attributes.traceContextSource default "") ++ "): " ++ (attributes.traceparent default "")]' />
+
 		<solace-tracing:publish doc:name="Publish order/processed" config-ref="Solace_Tracing_Config"
 			destination="order/processed"
 			serviceName="mule-process"
@@ -19,5 +22,6 @@ http://www.mulesoft.org/schema/mule/solace-tracing http://www.mulesoft.org/schem
 			traceparent="#[attributes.traceparent]"
 			tracestate="#[attributes.tracestate]"
 			target="outTrace" />
+		<logger level="INFO" doc:name="PROCESS out" message='#["PROCESS out: " ++ write(vars.outTrace, "application/json")]' />
 	</flow>
 </mule>

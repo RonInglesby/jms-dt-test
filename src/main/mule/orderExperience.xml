@@ -11,14 +11,19 @@ http://www.mulesoft.org/schema/mule/solace-tracing http://www.mulesoft.org/schem
 
 	<flow name="orderExperience">
 		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config_exp_api" path="orders_exp" allowedMethods="POST" />
-		<logger level="INFO" doc:name="Logger Experience API - Before Publish" message="#[payload]" />
+		<logger level="INFO" doc:name="Logger Exp API - Before Publish" message="#[payload]" />
+
+		<!-- Continues the caller's trace if it sent a traceparent header; otherwise starts a new trace.
+		     The body defaults to the payload. target keeps the payload intact. -->
 		<solace-tracing:publish doc:name="Publish orders/created" config-ref="Solace_Tracing_Config"
 			destination="order/created"
-			serviceName="mule-experience"
+			serviceName="mule-producer"
 			spanName="orders/created send"
 			traceparent="#[attributes.headers.traceparent]"
 			tracestate="#[attributes.headers.tracestate]"
 			target="outTrace" />
+		<logger level="INFO" doc:name="PRODUCER out" message='#["PRODUCER out: " ++ write(vars.outTrace, "application/json")]' />
+
 		<ee:transform doc:name="Transform Message">
 			<ee:message>
 				<ee:set-payload><![CDATA[%dw 2.0
