@@ -12,9 +12,6 @@ http://www.mulesoft.org/schema/mule/solace-tracing http://www.mulesoft.org/schem
 			queueName="q2"
 			serviceName="mule-system"
 			spanName="q2 receive" />
-		<logger level="INFO" doc:name="SYSTEM in"
-			message='#["SYSTEM in (" ++ (attributes.traceContextSource default "") ++ "): " ++ (attributes.traceparent default "")]' />
-
 		<!-- The listener gives the body media type application/json, so DataWeave reads it as JSON directly. -->
 		<ee:transform doc:name="Transform Message Sys API - Result">
 			<ee:message>
@@ -41,6 +38,5 @@ output application/json
 			traceparent="#[attributes.traceparent]"
 			tracestate="#[attributes.tracestate]"
 			target="outTrace" />
-		<logger level="INFO" doc:name="SYSTEM out" message='#["SYSTEM out: " ++ write(vars.outTrace, "application/json")]' />
 	</flow>
 </mule>
