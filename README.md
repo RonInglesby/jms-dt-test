@@ -1,12 +1,10 @@
 # jms-dt-test
 
-A MuleSoft 4 application that demonstrates distributed tracing across multiple Mule flows using the Solace Tracing connector. A trace started by an HTTP request is carried through each hop (`traceparent` / `tracestate`) via a Solace event broker, so every step shares one end-to-end trace.
+A MuleSoft 4 application that demonstrates distributed tracing across multiple Mule flows using the Solace Tracing connector (i.e. a wrapper for the Mulesoft JMS connector that includes context propagation). A trace started by an HTTP request is carried through each hop (`traceparent` / `tracestate`) via a Solace event broker, so every step shares one end-to-end trace.
 
 ## Flow overview
 
 ![Order flow across MuleSoft flows](flow.png)
-
-HTTP POST `/orders_exp` → **orderExperience** → publish `order/created` → **q1** → **orderProcess** → publish `order/processed` → **q2** → **orderSystem** → publish to **q3**
 
 ## Flows
 
@@ -88,6 +86,30 @@ The final message on `q3` looks like:
 
 The `traceparent` header is optional. If omitted, `orderExperience` starts a new trace.
 
+## Postman Example request 
+
+POST http://localhost:8081/orders_exp
+
+```json
+{ 
+    "customerId": "{{$guid}}",
+    "customerFirstName": "{{$randomFirstName}}",
+    "customerSurname": "{{$randomLastName}}",
+    "orderItems": [
+        {
+            "id" : "{{$randomInt}}",
+            "quantity" : {{$randomInt}},
+            "price" : {{$randomInt}}.00
+        },
+        {
+            "id" : "{{$randomInt}}",
+            "quantity" : {{$randomInt}},
+            "price" : {{$randomInt}}.00
+        }
+    ]
+}
+```
+
 ## Project details
 
 | Item | Value |
@@ -125,3 +147,6 @@ Deploy the resulting `mule-application` JAR to a Mule 4.12.4 runtime (or run fro
 ## Observing the trace
 
 Each flow logs the trace context on entry and exit (`PRODUCER out`, `PROCESS in/out`, `SYSTEM in/out`). The `traceparent` trace ID should be identical across all of these log lines, and in your tracing backend all spans should appear under one trace: `orders/created send` → `q1 receive` → `order/processed send` → `q2 receive` → `q3 send`.
+
+## Jaeger 
+![Jaeger result](result.png)
