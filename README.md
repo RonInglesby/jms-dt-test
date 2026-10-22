@@ -130,7 +130,7 @@ POST http://localhost:8081/orders_exp
 |---|---|
 | HTTP (`mule-http-connector`) | 1.12.1 |
 | Sockets (`mule-sockets-connector`) | 1.2.10 |
-| Solace Tracing (`solace-tracing-connector`) | 2.0.0 |
+| Solace Tracing (`solace-tracing-connector`) | 2.0.1 |
 | JMS (`mule-jms-connector`) | 2.0.0 |
 
 ### Source files

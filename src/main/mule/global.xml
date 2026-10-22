@@ -24,7 +24,10 @@ http://www.mulesoft.org/schema/mule/solace-tracing http://www.mulesoft.org/schem
 			username="${solace.username}"
 			password="${solace.password}"
 			reconnectRetries="20"
-			reconnectRetryWaitMs="3000">
+			reconnectRetryWaitMs="3000"
+			receiveWindowSize="${solace.receiveWindowSize}"
+			receiveAckThreshold="${solace.receiveAckThreshold}"
+			receiveAckTimerMs="${solace.receiveAckTimerMs}">
 			<reconnection>
 				<reconnect-forever frequency="5000" />
 			</reconnection>
