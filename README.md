@@ -2,6 +2,10 @@
 
 A MuleSoft 4 application that demonstrates distributed tracing across multiple Mule flows using the Solace Tracing connector (i.e. a wrapper for the Mulesoft JMS connector that includes context propagation). A trace started by an HTTP request is carried through each hop (`traceparent` / `tracestate`) via a Solace event broker, so every step shares one end-to-end trace.
 
+## Solace Tracing Connector:
+
+https://github.com/RonInglesby/solace-tracing--connector
+
 ## Flow overview
 
 ![Order flow across MuleSoft flows](flow.png)
