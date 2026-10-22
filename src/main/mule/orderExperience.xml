@@ -17,7 +17,7 @@ http://www.mulesoft.org/schema/mule/solace-tracing http://www.mulesoft.org/schem
 		     The body defaults to the payload. target keeps the payload intact. -->
 		<solace-tracing:publish doc:name="Publish orders/created" config-ref="Solace_Tracing_Config"
 			destination="order/created"
-			serviceName="mule-producer"
+			serviceName="mule-order-experience"
 			spanName="orders/created send"
 			traceparent="#[attributes.headers.traceparent]"
 			tracestate="#[attributes.headers.tracestate]"

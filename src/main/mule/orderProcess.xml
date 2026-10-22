@@ -10,14 +10,14 @@ http://www.mulesoft.org/schema/mule/solace-tracing http://www.mulesoft.org/schem
 	<flow name="orderProcess">
 		<solace-tracing:listener doc:name="On New Message q1" config-ref="Solace_Tracing_Config"
 			destination="q1"
-			serviceName="mule-process"
+			serviceName="mule-order-process"
 			spanName="q1 receive" />
 		<logger level="INFO" doc:name="PROCESS in"
 			message='#["PROCESS in (" ++ (attributes.traceContextSource default "") ++ "): " ++ (attributes.traceparent default "")]' />
 
 		<solace-tracing:publish doc:name="Publish order/processed" config-ref="Solace_Tracing_Config"
 			destination="order/processed"
-			serviceName="mule-process"
+			serviceName="mule-order-process"
 			spanName="order/processed send"
 			traceparent="#[attributes.traceparent]"
 			tracestate="#[attributes.tracestate]"

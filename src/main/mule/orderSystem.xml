@@ -10,7 +10,7 @@ http://www.mulesoft.org/schema/mule/solace-tracing http://www.mulesoft.org/schem
 	<flow name="orderSystem">
 		<solace-tracing:listener doc:name="On New Message q2" config-ref="Solace_Tracing_Config"
 			destination="q2"
-			serviceName="mule-system"
+			serviceName="mule-order-system"
 			spanName="q2 receive" />
 		<logger level="INFO" doc:name="SYSTEM in"
 			message='#["SYSTEM in (" ++ (attributes.traceContextSource default "") ++ "): " ++ (attributes.traceparent default "")]' />
@@ -36,7 +36,7 @@ output application/json
 		<solace-tracing:publish doc:name="Publish to q3" config-ref="Solace_Tracing_Config"
 			destination="q3"
 			destinationType="QUEUE"
-			serviceName="mule-system"
+			serviceName="mule-order-system"
 			spanName="q3 send"
 			traceparent="#[attributes.traceparent]"
 			tracestate="#[attributes.tracestate]"
