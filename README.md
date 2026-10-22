@@ -154,3 +154,6 @@ Each flow logs the trace context on entry and exit (`PRODUCER out`, `PROCESS in/
 
 ## Jaeger 
 ![Jaeger result](result.png)
+mule-... are the mule flows
+da222a1f6fb1 is my Solace broker running locally in docker
+
