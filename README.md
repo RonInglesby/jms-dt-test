@@ -153,7 +153,8 @@ Deploy the resulting `mule-application` JAR to a Mule 4.12.4 runtime (or run fro
 Each flow logs the trace context on entry and exit (`PRODUCER out`, `PROCESS in/out`, `SYSTEM in/out`). The `traceparent` trace ID should be identical across all of these log lines, and in your tracing backend all spans should appear under one trace: `orders/created send` → `q1 receive` → `order/processed send` → `q2 receive` → `q3 send`.
 
 ## Jaeger 
-![Jaeger result](result.png)
+![Jaeger result](result-01.png)
+![Jaeger trace](result.png)
 mule-... are the mule flows
 
 da222a1f6fb1 is my Solace broker running locally in docker
