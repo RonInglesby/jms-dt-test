@@ -1,10 +1,10 @@
 # jms-dt-test
 
-A MuleSoft 4 application that demonstrates distributed tracing across multiple Mule flows using the Solace Tracing connector (i.e. a wrapper for the Mulesoft JMS connector that includes context propagation). A trace started by an HTTP request is carried through each hop (`traceparent` / `tracestate`) via a Solace event broker, so every step shares one end-to-end trace.
+A MuleSoft 4 application that demonstrates distributed tracing across multiple Mule flows using the MuleSoft JMS connector built with Solace tracing (`mule-jms-dt-connector`): the standard `jms:` components, with OpenTelemetry spans and Solace-native context propagation added to the Generic Connection. A trace started by an HTTP request is carried through each hop (`traceparent` / `tracestate`) via a Solace event broker, so every step shares one end-to-end trace.
 
-## Solace Tracing Connector:
+## JMS connector with Solace tracing
 
-https://github.com/RonInglesby/solace-tracing--connector
+Built from the MuleSoft JMS connector source on the `solace-tracing` branch (see `SOLACE-TRACING.md` in that repository). Install it locally with `mvn clean install -DskipTests -Dmdep.skip=true` using JDK 11.
 
 ## Flow overview
 
@@ -18,30 +18,30 @@ https://github.com/RonInglesby/solace-tracing--connector
 |---|---|---|
 | 1 | HTTP Listener | `POST /orders_exp` |
 | 2 | Logger | Logs the incoming payload |
-| 3 | Solace Tracing Publish | Publishes to topic `order/created`. Continues the caller's trace if a `traceparent` header was sent, otherwise starts a new trace. Result stored in `vars.outTrace` so the payload is untouched |
-| 4 | Logger | `PRODUCER out` with the trace info |
+| 3 | JMS Publish | Publishes to topic `order/created` (span `order/created send`). Passes the caller's `traceparent` header as a message property if one was sent, otherwise starts a new trace |
+| 4 | Logger | `PRODUCER out` |
 | 5 | Transform Message | Returns `{ "orderStatus": "accepted" }` to the caller |
 
 ### orderProcess (`mule-order-process`)
 
 | Step | Component | Detail |
 |---|---|---|
-| 1 | Solace Tracing Listener | Consumes from queue `q1` (span `q1 receive`) |
+| 1 | JMS Listener | Consumes from queue `q1` (span `q1 receive`, parented on the broker's span) |
 | 2 | Logger | `PROCESS in` with trace context source and `traceparent` |
-| 3 | Solace Tracing Publish | Publishes to topic `order/processed`, passing on `traceparent` / `tracestate` |
-| 4 | Logger | `PROCESS out` with the trace info |
+| 3 | JMS Publish | Publishes to topic `order/processed`, with `attributes.traceparent` as the `traceparent` property |
+| 4 | Logger | `PROCESS out` |
 
-The listener acknowledges the message when the flow succeeds and asks the broker to redeliver when it fails. Configure a max redelivery count and a dead message queue (DMQ) on `q1` on the broker.
+The listener uses AUTO ack: the message is acknowledged when the flow succeeds and redelivered when it fails (`maxRedelivery="10"` on the config). Also configure a max redelivery count and a dead message queue (DMQ) on `q1` on the broker.
 
 ### orderSystem (`mule-order-system`)
 
 | Step | Component | Detail |
 |---|---|---|
-| 1 | Solace Tracing Listener | Consumes from queue `q2` (span `q2 receive`) |
+| 1 | JMS Listener | Consumes from queue `q2` (span `q2 receive`) |
 | 2 | Logger | `SYSTEM in` with trace context source and `traceparent` |
 | 3 | Transform Message | Builds the result: `customerId`, each order item set to status `ordered`, and `totalCost` (sum of item prices) |
-| 4 | Solace Tracing Publish | Publishes to queue `q3` (destination type `QUEUE`), passing on trace context |
-| 5 | Logger | `SYSTEM out` with the trace info |
+| 4 | JMS Publish | Publishes to queue `q3` (destination type `QUEUE`), with `attributes.traceparent` as the `traceparent` property |
+| 5 | Logger | `SYSTEM out` |
 
 ## Broker configuration
 
@@ -130,8 +130,8 @@ POST http://localhost:8081/orders_exp
 |---|---|
 | HTTP (`mule-http-connector`) | 1.12.1 |
 | Sockets (`mule-sockets-connector`) | 1.2.10 |
-| Solace Tracing (`solace-tracing-connector`) | 2.0.1 |
-| JMS (`mule-jms-connector`) | 2.0.0 |
+| JMS with Solace tracing (`mule-jms-dt-connector`) | 1.11.0-SOLACE-TRACING-1 (local build) |
+| Solace JMS API (`sol-jms`, shared library) | 10.17.0 |
 
 ### Source files
 
@@ -146,11 +146,11 @@ POST http://localhost:8081/orders_exp
 mvn clean package
 ```
 
-Deploy the resulting `mule-application` JAR to a Mule 4.12.4 runtime (or run from Anypoint Studio), with the `Solace_Tracing_Config` and `HTTP_Listener_config_exp_api` global configs pointing at your broker and HTTP port.
+Deploy the resulting `mule-application` JAR to a Mule 4.12.4 runtime (or run from Anypoint Studio), with `config.properties` pointing at your broker (JNDI connection factory `solace.jndi.connectionFactory`), your OpenTelemetry Collector (`otel.endpoint`) and the HTTP port. Each flow has its own JMS config (`SOLACE_JMS_EXP`, `SOLACE_JMS_PROCESS`, `SOLACE_JMS_SYSTEM`) so each appears as its own service in Jaeger. `global.xml` also declares the Bitronix transaction manager (`<bti:transaction-manager/>`). The JMS connector build needs it on Mule 4.12 to start; the flows don't use XA.
 
 ## Observing the trace
 
-Each flow logs the trace context on entry and exit (`PRODUCER out`, `PROCESS in/out`, `SYSTEM in/out`). The `traceparent` trace ID should be identical across all of these log lines, and in your tracing backend all spans should appear under one trace: `orders/created send` → `q1 receive` → `order/processed send` → `q2 receive` → `q3 send`.
+At startup each JMS config logs `JMS tracing enabled: service.name=... Solace-native context available`. The `PROCESS in` and `SYSTEM in` lines log the trace context source (it should be `solace`) and the receive span's `traceparent`; the trace ID should be the same in both. In your tracing backend all spans appear under one trace: `order/created send` → broker spans → `q1 receive` → `order/processed send` → broker spans → `q2 receive` → `q3 send`.
 
 ## Jaeger 
 ![Jaeger result](result.png)

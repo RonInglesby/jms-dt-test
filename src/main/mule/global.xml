@@ -1,36 +1,105 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:solace-tracing="http://www.mulesoft.org/schema/mule/solace-tracing"
+<mule xmlns:jms="http://www.mulesoft.org/schema/mule/jms"
+	xmlns:bti="http://www.mulesoft.org/schema/mule/ee/bti"
 	xmlns:http="http://www.mulesoft.org/schema/mule/http"
 	xmlns="http://www.mulesoft.org/schema/mule/core"
 	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
-http://www.mulesoft.org/schema/mule/solace-tracing http://www.mulesoft.org/schema/mule/solace-tracing/current/mule-solace-tracing.xsd">
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd
+http://www.mulesoft.org/schema/mule/ee/bti http://www.mulesoft.org/schema/mule/ee/bti/current/mule-bti-ee.xsd">
 
 	<configuration-properties doc:name="Configuration properties" file="config.properties" />
+
+	<!-- Required with this JMS connector build on Mule 4.12: when the connector starts, the runtime's Bitronix
+	     connection-factory decorator fails if no transaction manager is defined. The flows don't use XA, so this only
+	     satisfies that check (Bitronix leaves the non-XA connection factory as is). -->
+	<bti:transaction-manager doc:name="Bitronix Transaction Manager" />
 
 	<http:listener-config name="HTTP_Listener_config_exp_api" doc:name="HTTP Listener config">
 		<http:listener-connection host="0.0.0.0" port="8081" />
 	</http:listener-config>
 
-	<!-- Replaces SOLACE_JMS_CONFIG. One config serves the listener and the publish operation.
-	     For PROD, move solace.password to Secure Configuration Properties: password="${secure::solace.password}" -->
-	<solace-tracing:config name="Solace_Tracing_Config" doc:name="Solace Tracing Config"
-		serviceName="mule-orders" otlpEndpoint="${otel.endpoint}">
-		<solace-tracing:connection
-			host="${solace.host}"
-			vpn="${solace.vpn}"
-			username="${solace.username}"
-			password="${solace.password}"
-			reconnectRetries="20"
-			reconnectRetryWaitMs="3000"
-			receiveWindowSize="${solace.receiveWindowSize}"
-			receiveAckThreshold="${solace.receiveAckThreshold}"
-			receiveAckTimerMs="${solace.receiveAckTimerMs}">
+	<!-- JMS connector with Solace tracing (mule-jms-dt-connector). Tracing is set per connection, so each flow has its
+	     own config to keep its own service.name in Jaeger. Use one config if a single service name is enough.
+	     For PROD, move solace.password to Secure Configuration Properties: ${secure::solace.password} -->
+
+	<!-- orderExperience -->
+	<jms:config name="SOLACE_JMS_EXP" doc:name="SOLACE_JMS_EXP">
+		<jms:generic-connection username="${solace.username}" password="${solace.password}"
+			tracingEnabled="true" tracingServiceName="mule-order-experience" tracingOtlpEndpoint="${otel.endpoint}">
 			<reconnection>
 				<reconnect-forever frequency="5000" />
 			</reconnection>
-		</solace-tracing:connection>
-	</solace-tracing:config>
+			<jms:caching-strategy>
+				<jms:no-caching />
+			</jms:caching-strategy>
+			<jms:connection-factory>
+				<jms:jndi-connection-factory connectionFactoryJndiName="${solace.jndi.connectionFactory}" lookupDestination="TRY_ALWAYS">
+					<jms:name-resolver-builder jndiInitialContextFactory="com.solacesystems.jndi.SolJNDIInitialContextFactory"
+						jndiProviderUrl="${solace.host}">
+						<jms:provider-properties>
+							<jms:provider-property key="java.naming.security.principal" value="${solace.username}@${solace.vpn}" />
+							<jms:provider-property key="java.naming.security.credentials" value="${solace.password}" />
+							<jms:provider-property key="SOLACE_JMS_SSL_VALIDATE_CERTIFICATE" value="false" />
+						</jms:provider-properties>
+					</jms:name-resolver-builder>
+				</jms:jndi-connection-factory>
+			</jms:connection-factory>
+		</jms:generic-connection>
+		<jms:consumer-config maxRedelivery="10" />
+	</jms:config>
+
+	<!-- orderProcess -->
+	<jms:config name="SOLACE_JMS_PROCESS" doc:name="SOLACE_JMS_PROCESS">
+		<jms:generic-connection username="${solace.username}" password="${solace.password}"
+			tracingEnabled="true" tracingServiceName="mule-order-process" tracingOtlpEndpoint="${otel.endpoint}">
+			<reconnection>
+				<reconnect-forever frequency="5000" />
+			</reconnection>
+			<jms:caching-strategy>
+				<jms:no-caching />
+			</jms:caching-strategy>
+			<jms:connection-factory>
+				<jms:jndi-connection-factory connectionFactoryJndiName="${solace.jndi.connectionFactory}" lookupDestination="TRY_ALWAYS">
+					<jms:name-resolver-builder jndiInitialContextFactory="com.solacesystems.jndi.SolJNDIInitialContextFactory"
+						jndiProviderUrl="${solace.host}">
+						<jms:provider-properties>
+							<jms:provider-property key="java.naming.security.principal" value="${solace.username}@${solace.vpn}" />
+							<jms:provider-property key="java.naming.security.credentials" value="${solace.password}" />
+							<jms:provider-property key="SOLACE_JMS_SSL_VALIDATE_CERTIFICATE" value="false" />
+						</jms:provider-properties>
+					</jms:name-resolver-builder>
+				</jms:jndi-connection-factory>
+			</jms:connection-factory>
+		</jms:generic-connection>
+		<jms:consumer-config maxRedelivery="10" />
+	</jms:config>
+
+	<!-- orderSystem -->
+	<jms:config name="SOLACE_JMS_SYSTEM" doc:name="SOLACE_JMS_SYSTEM">
+		<jms:generic-connection username="${solace.username}" password="${solace.password}"
+			tracingEnabled="true" tracingServiceName="mule-order-system" tracingOtlpEndpoint="${otel.endpoint}">
+			<reconnection>
+				<reconnect-forever frequency="5000" />
+			</reconnection>
+			<jms:caching-strategy>
+				<jms:no-caching />
+			</jms:caching-strategy>
+			<jms:connection-factory>
+				<jms:jndi-connection-factory connectionFactoryJndiName="${solace.jndi.connectionFactory}" lookupDestination="TRY_ALWAYS">
+					<jms:name-resolver-builder jndiInitialContextFactory="com.solacesystems.jndi.SolJNDIInitialContextFactory"
+						jndiProviderUrl="${solace.host}">
+						<jms:provider-properties>
+							<jms:provider-property key="java.naming.security.principal" value="${solace.username}@${solace.vpn}" />
+							<jms:provider-property key="java.naming.security.credentials" value="${solace.password}" />
+							<jms:provider-property key="SOLACE_JMS_SSL_VALIDATE_CERTIFICATE" value="false" />
+						</jms:provider-properties>
+					</jms:name-resolver-builder>
+				</jms:jndi-connection-factory>
+			</jms:connection-factory>
+		</jms:generic-connection>
+		<jms:consumer-config maxRedelivery="10" />
+	</jms:config>
 </mule>

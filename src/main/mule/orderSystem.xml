@@ -1,21 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
-	xmlns:solace-tracing="http://www.mulesoft.org/schema/mule/solace-tracing"
+	xmlns:jms="http://www.mulesoft.org/schema/mule/jms"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
 	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
-http://www.mulesoft.org/schema/mule/solace-tracing http://www.mulesoft.org/schema/mule/solace-tracing/current/mule-solace-tracing.xsd">
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd">
 
 	<flow name="orderSystem">
-		<solace-tracing:listener doc:name="On New Message q2" config-ref="Solace_Tracing_Config"
-			destination="q2"
-			serviceName="mule-order-system"
-			spanName="q2 receive" />
+		<jms:listener doc:name="On New Message q2" config-ref="SOLACE_JMS_SYSTEM" destination="q2"
+			inboundContentType="application/json">
+			<jms:consumer-type>
+				<jms:queue-consumer />
+			</jms:consumer-type>
+		</jms:listener>
 		<logger level="INFO" doc:name="SYSTEM in"
 			message='#["SYSTEM in (" ++ (attributes.traceContextSource default "") ++ "): " ++ (attributes.traceparent default "")]' />
 
-		<!-- The listener gives the body media type application/json, so DataWeave reads it as JSON directly. -->
 		<ee:transform doc:name="Transform Message Sys API - Result">
 			<ee:message>
 				<ee:set-payload><![CDATA[%dw 2.0
@@ -33,14 +36,13 @@ output application/json
 			</ee:message>
 		</ee:transform>
 
-		<solace-tracing:publish doc:name="Publish to q3" config-ref="Solace_Tracing_Config"
-			destination="q3"
-			destinationType="QUEUE"
-			serviceName="mule-order-system"
-			spanName="q3 send"
-			traceparent="#[attributes.traceparent]"
-			tracestate="#[attributes.tracestate]"
-			target="outTrace" />
-		<logger level="INFO" doc:name="SYSTEM out" message='#["SYSTEM out: " ++ write(vars.outTrace, "application/json")]' />
+		<!-- attributes still hold the q2 receive span after the transform -->
+		<jms:publish doc:name="Publish to q3" config-ref="SOLACE_JMS_SYSTEM"
+			destination="q3" destinationType="QUEUE">
+			<jms:message outboundContentType="application/json">
+				<jms:properties><![CDATA[#[if (attributes.traceparent != null) {traceparent: attributes.traceparent} else {}]]]></jms:properties>
+			</jms:message>
+		</jms:publish>
+		<logger level="INFO" doc:name="SYSTEM out" message="Published to q3" />
 	</flow>
 </mule>

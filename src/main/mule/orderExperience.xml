@@ -1,28 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
-	xmlns:solace-tracing="http://www.mulesoft.org/schema/mule/solace-tracing"
+	xmlns:jms="http://www.mulesoft.org/schema/mule/jms"
 	xmlns:http="http://www.mulesoft.org/schema/mule/http"
 	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
-http://www.mulesoft.org/schema/mule/solace-tracing http://www.mulesoft.org/schema/mule/solace-tracing/current/mule-solace-tracing.xsd">
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd">
 
 	<flow name="orderExperience">
 		<http:listener doc:name="Listener" config-ref="HTTP_Listener_config_exp_api" path="orders_exp" allowedMethods="POST" />
 		<logger level="INFO" doc:name="Logger Exp API - Before Publish" message="#[payload]" />
 
-		<!-- Continues the caller's trace if it sent a traceparent header; otherwise starts a new trace.
-		     The body defaults to the payload. target keeps the payload intact. -->
-		<solace-tracing:publish doc:name="Publish orders/created" config-ref="Solace_Tracing_Config"
-			destination="order/created"
-			serviceName="mule-order-experience"
-			spanName="orders/created send"
-			traceparent="#[attributes.headers.traceparent]"
-			tracestate="#[attributes.headers.tracestate]"
-			target="outTrace" />
-		<logger level="INFO" doc:name="PRODUCER out" message='#["PRODUCER out: " ++ write(vars.outTrace, "application/json")]' />
+		<!-- The connector traces the send (span "order/created send"). If the caller sent a traceparent header it is
+		     passed as the parent, otherwise a new trace starts. The body is the payload. -->
+		<jms:publish doc:name="Publish order/created" config-ref="SOLACE_JMS_EXP"
+			destination="order/created" destinationType="TOPIC">
+			<jms:message outboundContentType="application/json">
+				<jms:properties><![CDATA[#[if (attributes.headers.traceparent != null) {traceparent: attributes.headers.traceparent} else {}]]]></jms:properties>
+			</jms:message>
+		</jms:publish>
+		<logger level="INFO" doc:name="PRODUCER out" message="Published to order/created" />
 
 		<ee:transform doc:name="Transform Message">
 			<ee:message>
