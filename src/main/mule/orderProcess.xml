@@ -1,27 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:solace-tracing="http://www.mulesoft.org/schema/mule/solace-tracing"
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:jms="http://www.mulesoft.org/schema/mule/jms"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
 	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
-http://www.mulesoft.org/schema/mule/solace-tracing http://www.mulesoft.org/schema/mule/solace-tracing/current/mule-solace-tracing.xsd">
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd">
 
-	<!-- The listener acks when the flow succeeds and asks the broker to redeliver when it fails.
-	     Set a max redelivery count and a DMQ on q1 in the broker. -->
+	<!-- AUTO ack: acked when the flow succeeds, redelivered when it fails (maxRedelivery on the config).
+	     Also set a max redelivery count and a DMQ on q1 in the broker. -->
 	<flow name="orderProcess">
-		<solace-tracing:listener doc:name="On New Message q1" config-ref="Solace_Tracing_Config"
-			destination="q1"
-			serviceName="mule-order-process"
-			spanName="q1 receive" />
+		<jms:listener doc:name="On New Message q1" config-ref="SOLACE_JMS_PROCESS" destination="q1"
+			inboundContentType="application/json">
+			<jms:consumer-type>
+				<jms:queue-consumer />
+			</jms:consumer-type>
+		</jms:listener>
 		<logger level="INFO" doc:name="PROCESS in"
 			message='#["PROCESS in (" ++ (attributes.traceContextSource default "") ++ "): " ++ (attributes.traceparent default "")]' />
 
-		<solace-tracing:publish doc:name="Publish order/processed" config-ref="Solace_Tracing_Config"
-			destination="order/processed"
-			serviceName="mule-order-process"
-			spanName="order/processed send"
-			traceparent="#[attributes.traceparent]"
-			tracestate="#[attributes.tracestate]"
-			target="outTrace" />
-		<logger level="INFO" doc:name="PROCESS out" message='#["PROCESS out: " ++ write(vars.outTrace, "application/json")]' />
+		<!-- Continue the trace: the receive span's traceparent becomes the parent of this send -->
+		<jms:publish doc:name="Publish order/processed" config-ref="SOLACE_JMS_PROCESS"
+			destination="order/processed" destinationType="TOPIC">
+			<jms:message outboundContentType="application/json">
+				<jms:properties><![CDATA[#[if (attributes.traceparent != null) {traceparent: attributes.traceparent} else {}]]]></jms:properties>
+			</jms:message>
+		</jms:publish>
+		<logger level="INFO" doc:name="PROCESS out" message="Published to order/processed" />
 	</flow>
 </mule>

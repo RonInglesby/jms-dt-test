@@ -15,6 +15,8 @@
 
 		<app.runtime>4.12.4</app.runtime>
 		<mule.maven.plugin.version>4.10.1</mule.maven.plugin.version>
+		<!-- Solace JMS API. 10.17 or later (Solace OpenTelemetry JMS integration 1.2 compatibility) -->
+		<sol-jms.version>10.17.0</sol-jms.version>
 	</properties>
 
 	<build>
@@ -29,6 +31,15 @@
 				<artifactId>mule-maven-plugin</artifactId>
 				<version>${mule.maven.plugin.version}</version>
 				<extensions>true</extensions>
+				<configuration>
+					<!-- The JMS connector (and its Solace tracing code) loads the Solace JMS API from the app -->
+					<sharedLibraries>
+						<sharedLibrary>
+							<groupId>com.solacesystems</groupId>
+							<artifactId>sol-jms</artifactId>
+						</sharedLibrary>
+					</sharedLibraries>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>
@@ -46,17 +57,18 @@
 			<version>1.2.10</version>
 			<classifier>mule-plugin</classifier>
 		</dependency>
+		<!-- MuleSoft JMS connector with Solace tracing (local build). Replaces solace-tracing-connector
+		     and the standard mule-jms-connector: both can't be used, they share the jms: namespace. -->
 		<dependency>
-			<groupId>com.solace.connectors</groupId>
-			<artifactId>solace-tracing-connector</artifactId>
-			<version>2.0.1</version>
+			<groupId>org.mule.connectors</groupId>
+			<artifactId>mule-jms-dt-connector</artifactId>
+			<version>1.11.0-SOLACE-TRACING-3</version>
 			<classifier>mule-plugin</classifier>
 		</dependency>
 		<dependency>
-			<groupId>org.mule.connectors</groupId>
-			<artifactId>mule-jms-connector</artifactId>
-			<version>2.0.0</version>
-			<classifier>mule-plugin</classifier>
+			<groupId>com.solacesystems</groupId>
+			<artifactId>sol-jms</artifactId>
+			<version>${sol-jms.version}</version>
 		</dependency>
 	</dependencies>
 
